@@ -154,6 +154,7 @@ class NodeCatalog {
 		}
 
 		this.logger.debug(`-- Node '${nodeID}' update.`);
+		this.logger.debug(`-- Old seq '${node.seq}', new seq ${payload.seq}.`);
 		// Update instance
 		const needRegister = node.update(payload, isReconnected);
 
