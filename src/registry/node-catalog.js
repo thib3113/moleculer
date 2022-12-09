@@ -137,24 +137,32 @@ class NodeCatalog {
 		let isNew = false;
 		let isReconnected = false;
 
+
+		this.logger.debug(`-- Node '${nodeID}' received.`);
 		if (!node) {
+			this.logger.debug(`-- Node '${nodeID}' is new.`);
 			isNew = true;
 			node = new Node(nodeID);
 
 			this.add(nodeID, node);
 		} else if (!node.available) {
+			this.logger.debug(`-- Node '${nodeID}' is reconnected.`);
 			isReconnected = true;
 			node.lastHeartbeatTime = Math.round(process.uptime());
 			node.available = true;
 			node.offlineSince = null;
 		}
 
+		this.logger.debug(`-- Node '${nodeID}' update.`);
 		// Update instance
 		const needRegister = node.update(payload, isReconnected);
 
 		// Refresh services if 'seq' is greater or it is a reconnected node
 		if (needRegister && node.services) {
+			this.logger.debug(`-- Node '${nodeID}' need register, and has services.`);
 			this.registry.registerServices(node, node.services);
+		} else {
+			this.logger.debug(`-- Node '${nodeID}' no need register.`, needRegister);
 		}
 
 		// Local notifications
