@@ -44,7 +44,10 @@ declare namespace Moleculer {
 		trace(...args: any[]): void;
 	}
 
-	type ActionHandler<T = any> = (ctx: Context<any, any>) => Promise<T> | T;
+	type ActionHandler<T = any, S extends ServiceSettingSchema = ServiceSettingSchema> = (
+		this: Service<S>,
+		ctx: Context<any, any>
+	) => Promise<T> | T;
 	type ActionParamSchema = { [key: string]: any };
 	type ActionParamTypes =
 		| "any"
@@ -475,14 +478,14 @@ declare namespace Moleculer {
 		basePath?: string;
 	}
 
-	interface ActionSchema<S = ServiceSettingSchema> extends ThisType<Service<S>> {
+	interface ActionSchema<S extends ServiceSettingSchema = ServiceSettingSchema> {
 		name?: string;
 		rest?: RestSchema | string | string[];
 		visibility?: ActionVisibility;
 		params?: ActionParams;
 		service?: Service;
 		cache?: boolean | ActionCacheOptions;
-		handler?: ActionHandler;
+		handler?: ActionHandler<any, S>;
 		tracing?: boolean | TracingActionOptions;
 		bulkhead?: BulkheadOptions;
 		circuitBreaker?: BrokerCircuitBreakerOptions;
@@ -493,21 +496,21 @@ declare namespace Moleculer {
 		[key: string]: any;
 	}
 
-	interface EventSchema<S = ServiceSettingSchema> extends ThisType<Service<S>>{
+	interface EventSchema<S extends ServiceSettingSchema = ServiceSettingSchema> {
 		name?: string;
 		group?: string;
 		params?: ActionParams;
 		service?: Service;
 		tracing?: boolean | TracingEventOptions;
 		bulkhead?: BulkheadOptions;
-		handler?: ActionHandler;
+		handler?: ActionHandler<any, S>;
 		context?: boolean;
 
 		[key: string]: any;
 	}
 
-	interface ServiceActionsSchema<S = ServiceSettingSchema> extends ThisType<Service<S>> {
-		[key: string]: ActionSchema | ActionHandler | boolean;
+	interface ServiceActionsSchema<S extends ServiceSettingSchema = ServiceSettingSchema> {
+		[key: string]: ActionSchema<S> | ActionHandler<any, S> | boolean;
 	}
 
 	class BrokerNode {
@@ -626,29 +629,32 @@ declare namespace Moleculer {
 	}
 
 	type ServiceEventLegacyHandler = (
+		this: ServiceBroker,
 		payload: any,
 		sender: string,
 		eventName: string,
 		ctx: Context
 	) => void | Promise<void>;
 
-	type ServiceEventHandler = (ctx: Context) => void | Promise<void>;
+	type ServiceEventHandler<S extends ServiceSettingSchema = ServiceSettingSchema> = (this: Service<S>,ctx: Context) => void | Promise<void>;
 
-	interface ServiceEvent<S = ServiceSettingSchema> extends ThisType<Service<S>> {
+	interface ServiceEvent<S extends ServiceSettingSchema = ServiceSettingSchema> {
 		name?: string;
 		group?: string;
 		params?: ActionParams;
 		context?: boolean;
 		debounce?: number;
 		throttle?: number;
-		handler?: ServiceEventHandler | ServiceEventLegacyHandler;
+		handler?: ServiceEventHandler<S> | ServiceEventLegacyHandler;
 	}
 
 	interface ServiceEvents {
 		[key: string]: ServiceEventHandler | ServiceEventLegacyHandler | ServiceEvent;
 	}
 
-	interface ServiceMethods extends ThisType<Service> { [key: string]: (...args: any[]) => any }
+	interface ServiceMethods {
+		[key: string]: (this: Service, ...args: any[]) => any;
+	}
 
 	type CallMiddlewareHandler = (
 		actionName: string,
