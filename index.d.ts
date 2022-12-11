@@ -44,10 +44,7 @@ declare namespace Moleculer {
 		trace(...args: any[]): void;
 	}
 
-	type ActionHandler<T = any, S extends ServiceSettingSchema = ServiceSettingSchema> = (
-		this: Service<S>,
-		ctx: Context<any, any>
-	) => Promise<T> | T;
+	type ActionHandler<T = any> = (ctx: Context<any, any>) => Promise<T> | T;
 	type ActionParamSchema = { [key: string]: any };
 	type ActionParamTypes =
 		| "any"
@@ -165,25 +162,33 @@ declare namespace Moleculer {
 		startSpan(name: string, opts?: GenericObject): Span;
 	}
 
+	// allow to extend TracingActionTags
+	interface TracingActionTagsExtension {}
 	type TracingActionTagsFuncType = (ctx: Context, response?: any) => GenericObject;
-	interface TracingActionTags extends TracingActionTagsFuncType {
-		params?: boolean | string[];
-		meta?: boolean | string[];
-		response?: boolean | string[];
-	}
+	type TracingActionTags =
+		| TracingActionTagsFuncType
+		| {
+				params?: boolean | string[];
+				meta?: boolean | string[];
+				response?: boolean | string[];
+		  } & TracingActionTagsExtension;
 
+	// allow to extend TracingEventTags
+	interface TracingEventTagsExtension {}
 	type TracingEventTagsFuncType = (ctx: Context) => GenericObject;
-	interface TracingEventTags extends TracingEventTagsFuncType {
-		params?: boolean | string[];
-		meta?: boolean | string[];
-	}
+	type TracingEventTags =
+		| TracingEventTagsFuncType
+		| {
+				params?: boolean | string[];
+				meta?: boolean | string[];
+		  } & TracingEventTagsExtension;
 
-	type TracingSpanNameOption = string | ((ctx: Context) => string);
+	type TracingSpanNameOption = string | ((ctx: Context) => string)
 
 	interface TracingOptions {
 		enabled?: boolean;
 		tags?: TracingActionTags | TracingEventTags;
-		spanName?: TracingSpanNameOption;
+		spanName?: TracingSpanNameOption
 		safetyTags?: boolean;
 	}
 
@@ -478,40 +483,49 @@ declare namespace Moleculer {
 		basePath?: string;
 	}
 
-	interface ActionSchema<S extends ServiceSettingSchema = ServiceSettingSchema> {
+
+	// allow to extend ActionSchema
+	interface ActionSchemaExtension<S extends ServiceSettingSchema = ServiceSettingSchema> {
+		cache?: boolean | ActionCacheOptions;
+		bulkhead?: BulkheadOptions;
+		circuitBreaker?: BrokerCircuitBreakerOptions;
+		fallback?: string | FallbackHandler;
+	}
+	type ActionSchema<S extends ServiceSettingSchema = ServiceSettingSchema> = {
 		name?: string;
 		rest?: RestSchema | string | string[];
 		visibility?: ActionVisibility;
 		params?: ActionParams;
 		service?: Service;
-		cache?: boolean | ActionCacheOptions;
-		handler?: ActionHandler<any, S>;
+		handler?: ActionHandler;
 		tracing?: boolean | TracingActionOptions;
-		bulkhead?: BulkheadOptions;
-		circuitBreaker?: BrokerCircuitBreakerOptions;
 		retryPolicy?: RetryPolicyOptions;
-		fallback?: string | FallbackHandler;
 		hooks?: ActionHooks;
 
 		[key: string]: any;
-	}
+	} & ActionSchemaExtension<S> & ThisType<Service<S>>;
 
-	interface EventSchema<S extends ServiceSettingSchema = ServiceSettingSchema> {
+	// allow to extend EventSchema
+	interface EventSchemaExtension<S extends ServiceSettingSchema = ServiceSettingSchema> {
+		bulkhead?: BulkheadOptions;
+	}
+	type EventSchema<S extends ServiceSettingSchema = ServiceSettingSchema> = {
 		name?: string;
 		group?: string;
 		params?: ActionParams;
 		service?: Service;
 		tracing?: boolean | TracingEventOptions;
-		bulkhead?: BulkheadOptions;
-		handler?: ActionHandler<any, S>;
+		handler?: ActionHandler;
 		context?: boolean;
 
 		[key: string]: any;
-	}
+	} & EventSchemaExtension<S> & ThisType<Service<S>>;
 
-	interface ServiceActionsSchema<S extends ServiceSettingSchema = ServiceSettingSchema> {
-		[key: string]: ActionSchema<S> | ActionHandler<any, S> | boolean;
-	}
+	// allow to extend ServiceActionsSchema
+	interface ServiceActionsSchemaExtension<S extends ServiceSettingSchema = ServiceSettingSchema> {}
+	type ServiceActionsSchema<S extends ServiceSettingSchema = ServiceSettingSchema> = {
+		[key: string]: ActionSchema | ActionHandler | boolean;
+	} & ServiceActionsSchemaExtension<S> & ThisType<Service<S>>;
 
 	class BrokerNode {
 		id: string;
@@ -629,39 +643,40 @@ declare namespace Moleculer {
 	}
 
 	type ServiceEventLegacyHandler = (
-		this: ServiceBroker,
 		payload: any,
 		sender: string,
 		eventName: string,
 		ctx: Context
 	) => void | Promise<void>;
 
-	type ServiceEventHandler<S extends ServiceSettingSchema = ServiceSettingSchema> = (this: Service<S>,ctx: Context) => void | Promise<void>;
+	type ServiceEventHandler = (ctx: Context) => void | Promise<void>;
 
-	interface ServiceEvent<S extends ServiceSettingSchema = ServiceSettingSchema> {
+	interface ServiceEventsExtension {
+		debounce?: number;
+		throttle?: number;
+	}
+	type ServiceEvent<S = ServiceSettingSchema> = {
 		name?: string;
 		group?: string;
 		params?: ActionParams;
 		context?: boolean;
-		debounce?: number;
-		throttle?: number;
-		handler?: ServiceEventHandler<S> | ServiceEventLegacyHandler;
-	}
+		handler?: ServiceEventHandler | ServiceEventLegacyHandler;
+	} & ServiceEventsExtension & ThisType<Service<S>>;
 
-	interface ServiceEvents {
+	type ServiceEvents = {
 		[key: string]: ServiceEventHandler | ServiceEventLegacyHandler | ServiceEvent;
-	}
+	};
 
-	interface ServiceMethods {
-		[key: string]: (this: Service, ...args: any[]) => any;
-	}
+	// allow to extend ServiceMethods
+	interface ServiceMethodsExtension {}
+	type ServiceMethods = { [key: string]: (...args: any[]) => any } & ServiceMethodsExtension & ThisType<Service>;
 
 	type CallMiddlewareHandler = (
 		actionName: string,
 		params: any,
 		opts: CallingOptions
 	) => Promise<any>;
-	interface Middleware {
+	type Middleware = {
 		[name: string]:
 			| ((handler: ActionHandler, action: ActionSchema) => any)
 			| ((handler: ActionHandler, event: ServiceEvent) => any)
@@ -669,7 +684,7 @@ declare namespace Moleculer {
 			| ((service: Service) => any)
 			| ((broker: ServiceBroker) => any)
 			| ((handler: CallMiddlewareHandler) => CallMiddlewareHandler);
-	}
+	};
 
 	type MiddlewareInit = (broker: ServiceBroker) => Middleware;
 	interface MiddlewareCallHandlerOptions {
@@ -781,7 +796,7 @@ declare namespace Moleculer {
 		 * @param params The event parameters
 		 * @param opts The event options
 		 */
-		emitLocalEventHandler(eventName: string, params?: any, opts?: any): any;
+		emitLocalEventHandler(eventName: string, params?: any, opts?: any): any
 
 		/**
 		 * Wait for the specified services to become available/registered with this broker.
@@ -792,9 +807,9 @@ declare namespace Moleculer {
 		 * @param interval The time we will wait before once again checking if the service(s) are available (In milliseconds)
 		 */
 		waitForServices(
-			serviceNames: string | Array<string> | Array<ServiceDependency>,
-			timeout?: number,
-			interval?: number
+		  serviceNames: string | Array<string> | Array<ServiceDependency>,
+		  timeout?: number,
+		  interval?: number,
 		): Promise<WaitForServicesResult>;
 
 		[name: string]: any;
@@ -884,7 +899,10 @@ declare namespace Moleculer {
 		 * @param src Source schema property
 		 * @param target Target schema property
 		 */
-		mergeSchemaLifecycleHandlers(src: GenericObject, target: GenericObject): GenericObject;
+		mergeSchemaLifecycleHandlers(
+		  src: GenericObject,
+		  target: GenericObject
+		): GenericObject;
 
 		/**
 		 * Merge unknown properties in schema
@@ -900,7 +918,7 @@ declare namespace Moleculer {
 		 * @param name The name
 		 * @param version The version
 		 */
-		static getVersionedFullName(name: string, version?: string | number): string;
+		static getVersionedFullName(name: string, version?: string|number): string;
 	}
 
 	type CheckRetryable = (err: Errors.MoleculerError | Error) => boolean;
@@ -1087,10 +1105,10 @@ declare namespace Moleculer {
 	type FallbackResponse = string | number | GenericObject;
 	type FallbackResponseHandler = (ctx: Context, err: Errors.MoleculerError) => Promise<any>;
 
-	interface ContextParentSpan {
-		id: string;
-		traceID: string;
-		sampled: boolean;
+	type ContextParentSpan = {
+		id: string
+		traceID: string
+		sampled: boolean
 	}
 
 	interface CallingOptions {
@@ -1447,8 +1465,8 @@ declare namespace Moleculer {
 				meta: object | null,
 				keys: Array<string> | null
 			): string;
-			tryLock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>;
-			lock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>;
+			tryLock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>
+			lock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>
 		}
 
 		class Memory extends Base {
