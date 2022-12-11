@@ -1,4 +1,5 @@
 import { EventEmitter2 } from "eventemitter2";
+import type { Kleur } from "kleur";
 
 declare namespace Moleculer {
 	/**
@@ -183,12 +184,12 @@ declare namespace Moleculer {
 				meta?: boolean | string[];
 		  } & TracingEventTagsExtension;
 
-	type TracingSpanNameOption = string | ((ctx: Context) => string)
+	type TracingSpanNameOption = string | ((ctx: Context) => string);
 
 	interface TracingOptions {
 		enabled?: boolean;
 		tags?: TracingActionTags | TracingEventTags;
-		spanName?: TracingSpanNameOption
+		spanName?: TracingSpanNameOption;
 		safetyTags?: boolean;
 	}
 
@@ -796,7 +797,7 @@ declare namespace Moleculer {
 		 * @param params The event parameters
 		 * @param opts The event options
 		 */
-		emitLocalEventHandler(eventName: string, params?: any, opts?: any): any
+		emitLocalEventHandler(eventName: string, params?: any, opts?: any): any;
 
 		/**
 		 * Wait for the specified services to become available/registered with this broker.
@@ -807,9 +808,9 @@ declare namespace Moleculer {
 		 * @param interval The time we will wait before once again checking if the service(s) are available (In milliseconds)
 		 */
 		waitForServices(
-		  serviceNames: string | Array<string> | Array<ServiceDependency>,
-		  timeout?: number,
-		  interval?: number,
+			serviceNames: string | Array<string> | Array<ServiceDependency>,
+			timeout?: number,
+			interval?: number
 		): Promise<WaitForServicesResult>;
 
 		[name: string]: any;
@@ -899,10 +900,7 @@ declare namespace Moleculer {
 		 * @param src Source schema property
 		 * @param target Target schema property
 		 */
-		mergeSchemaLifecycleHandlers(
-		  src: GenericObject,
-		  target: GenericObject
-		): GenericObject;
+		mergeSchemaLifecycleHandlers(src: GenericObject, target: GenericObject): GenericObject;
 
 		/**
 		 * Merge unknown properties in schema
@@ -918,7 +916,7 @@ declare namespace Moleculer {
 		 * @param name The name
 		 * @param version The version
 		 */
-		static getVersionedFullName(name: string, version?: string|number): string;
+		static getVersionedFullName(name: string, version?: string | number): string;
 	}
 
 	type CheckRetryable = (err: Errors.MoleculerError | Error) => boolean;
@@ -1106,10 +1104,10 @@ declare namespace Moleculer {
 	type FallbackResponseHandler = (ctx: Context, err: Errors.MoleculerError) => Promise<any>;
 
 	type ContextParentSpan = {
-		id: string
-		traceID: string
-		sampled: boolean
-	}
+		id: string;
+		traceID: string;
+		sampled: boolean;
+	};
 
 	interface CallingOptions {
 		timeout?: number;
@@ -1357,21 +1355,24 @@ declare namespace Moleculer {
 			sender: string | null;
 		}
 
+		type packetType =
+			| PACKET_UNKNOWN
+			| PACKET_EVENT
+			| PACKET_DISCONNECT
+			| PACKET_DISCOVER
+			| PACKET_INFO
+			| PACKET_HEARTBEAT
+			| PACKET_REQUEST
+			| PACKET_PING
+			| PACKET_PONG
+			| PACKET_RESPONSE
+			| PACKET_GOSSIP_REQ
+			| PACKET_GOSSIP_RES
+			| PACKET_GOSSIP_HELLO;
+
 		interface Packet {
-			type:
-				| PACKET_UNKNOWN
-				| PACKET_EVENT
-				| PACKET_DISCONNECT
-				| PACKET_DISCOVER
-				| PACKET_INFO
-				| PACKET_HEARTBEAT
-				| PACKET_REQUEST
-				| PACKET_PING
-				| PACKET_PONG
-				| PACKET_RESPONSE
-				| PACKET_GOSSIP_REQ
-				| PACKET_GOSSIP_RES
-				| PACKET_GOSSIP_HELLO;
+			type: packetType;
+
 			target?: string;
 			payload: PacketPayload;
 		}
@@ -1465,8 +1466,8 @@ declare namespace Moleculer {
 				meta: object | null,
 				keys: Array<string> | null
 			): string;
-			tryLock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>
-			lock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>
+			tryLock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>;
+			lock(key: string | Array<string>, ttl?: number): Promise<() => Promise<void>>;
 		}
 
 		class Memory extends Base {
@@ -1682,6 +1683,54 @@ declare namespace Moleculer {
 			): Error | undefined;
 		}
 	}
+
+	/**
+	 * you can use multiple modifier with a dot
+	 * e.g. `black.bgRed.bold`
+	 */
+	type KleurColor = keyof Kleur | string;
+
+	type ActionLoggerOptions = {
+		logger?: LoggerInstance;
+		logLevel?: LogLevels;
+		logParams?: boolean;
+		logResponse?: boolean;
+		logMeta?: boolean;
+		folder?: string | null;
+		extension?: string;
+		colors?: {
+			request?: KleurColor;
+			response?: KleurColor;
+			error?: KleurColor;
+		};
+		whitelist?: Array<string>;
+	};
+	type TransitLoggerOptions = {
+		logger?: LoggerInstance;
+		logLevel?: LogLevels;
+		logPacketData?: boolean;
+		folder?: string | null;
+		extension?: string;
+		colors?: {
+			receive?: KleurColor;
+			send?: KleurColor;
+		};
+		packetFilter?: Array<Packets.packetType>;
+	};
+	type CompressionOptions = {
+		method?: "deflate" | "deflateRaw" | "gzip";
+		threshold?: number | string;
+	};
+	export const Middlewares: {
+		Debugging: {
+			ActionLogger(options?: ActionLoggerOptions): Middleware;
+			TransitLogger(options?: TransitLoggerOptions): Middleware;
+		};
+		Transmit: {
+			Compression(options?: CompressionOptions): Middleware;
+			Encryption(password: string, algorithm: string, iv: string | Buffer): Middleware;
+		};
+	};
 
 	interface TransitRequest {
 		action: string;
