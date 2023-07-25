@@ -620,6 +620,44 @@ const utils = {
 					.map(x => x.trim())
 					.filter(Boolean)
 			: [];
+	},
+
+	/**
+	 * Creates a duplicate-free version of an array
+	 *
+	 * @param {Array<String|Number>} arr
+	 * @returns {Array<String|Number>}
+	 */
+	uniq(arr) {
+		return [...new Set(arr)];
+	},
+
+	/**
+	 * Produces a random floating number between the inclusive lower and upper bounds.
+	 *
+	 * @param {Number} a
+	 * @param {Number} b
+	 * @returns {Number}
+	 */
+	random(a = 1, b = 0) {
+		const lower = Math.min(a, b);
+		const upper = Math.max(a, b);
+
+		return lower + Math.random() * (upper - lower);
+	},
+
+	/**
+	 * Produces a random integer number between the inclusive lower and upper bounds.
+	 *
+	 * @param {Number} a
+	 * @param {Number} b
+	 * @returns {Number}
+	 */
+	randomInt(a = 1, b = 0) {
+		const lower = Math.ceil(Math.min(a, b));
+		const upper = Math.floor(Math.max(a, b));
+
+		return Math.floor(lower + Math.random() * (upper - lower + 1));
 	}
 };
 

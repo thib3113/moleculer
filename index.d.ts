@@ -22,8 +22,8 @@ declare namespace Moleculer {
 		constructor(broker: ServiceBroker);
 		init(opts: LoggerConfig | LoggerConfig[]): void;
 		stop(): void;
-		getLogger(bindings: GenericObject): LoggerInstance;
-		getBindingsKey(bindings: GenericObject): string;
+		getLogger(bindings: LoggerBindings): LoggerInstance;
+		getBindingsKey(bindings: LoggerBindings): string;
 
 		broker: ServiceBroker;
 	}
@@ -33,7 +33,7 @@ declare namespace Moleculer {
 		ns: string;
 		mod: string;
 		svc: string;
-		ver: string | void;
+		ver?: string;
 	}
 
 	class LoggerInstance {
@@ -1130,26 +1130,6 @@ declare namespace Moleculer {
 		options?: CallingOptions;
 	}
 
-	interface Endpoint {
-		broker: ServiceBroker;
-
-		id: string;
-		node: GenericObject;
-
-		local: boolean;
-		state: boolean;
-	}
-
-	interface ActionEndpoint extends Endpoint {
-		service: Service;
-		action: ActionSchema;
-	}
-
-	interface EventEndpoint extends Endpoint {
-		service: Service;
-		event: EventSchema;
-	}
-
 	interface PongResponse {
 		nodeID: string;
 		elapsedTime: number;
@@ -1166,12 +1146,14 @@ declare namespace Moleculer {
 	}
 
 	namespace Loggers {
+		type LogHandler = (level: LogLevels, args: unknown[]) => void;
+
 		class Base {
 			constructor(opts?: GenericObject);
 			init(loggerFactory: LoggerFactory): void;
 			stop(): void;
-			getLogLevel(mod: string): string;
-			getLogHandler(bindings: GenericObject): GenericObject;
+			getLogLevel(mod: string): LogLevels | null;
+			getLogHandler(bindings?: LoggerBindings): LogHandler | null;
 		}
 	}
 
@@ -1765,13 +1747,6 @@ declare namespace Moleculer {
 		publish(packet: Packet): Promise<void>;
 	}
 
-	interface ActionCatalogListOptions {
-		onlyLocal?: boolean;
-		onlyAvailable?: boolean;
-		skipInternal?: boolean;
-		withEndpoints?: boolean;
-	}
-
 	interface ServiceListCatalogOptions {
 		onlyLocal?: boolean;
 		onlyAvailable?: boolean;
@@ -1792,14 +1767,70 @@ declare namespace Moleculer {
 
 		nodes: any;
 		services: any;
-		actions: any;
+		actions: ActionCatalog;
 		events: any;
 
 		getServiceList<S = ServiceSettingSchema>(
 			opts?: ServiceListCatalogOptions
 		): ServiceSchema<S>[];
-		getActionList(opts?: ActionCatalogListOptions): ActionSchema[];
+		getActionList(opts?: ActionCatalogListOptions): ReturnType<ActionCatalog["list"]>;
 	}
+
+	abstract class Endpoint {
+		broker: ServiceBroker;
+
+		id: string;
+		node: GenericObject;
+
+		local: boolean;
+		state: boolean;
+	}
+
+	class ActionEndpoint extends Endpoint {
+		service: Service;
+		action: ActionSchema;
+	}
+
+	class EventEndpoint extends Endpoint {
+		service: Service;
+		event: EventSchema;
+	}
+
+	class EndpointList {
+		endpoints: (ActionEndpoint | EventEndpoint)[];
+	}
+
+	interface ActionCatalogListOptions {
+		onlyLocal?: boolean;
+		onlyAvailable?: boolean;
+		skipInternal?: boolean;
+		withEndpoints?: boolean;
+	}
+
+	interface ActionCatalogListResult {
+		name: string;
+		count: number;
+		hasLocal: boolean;
+		available: boolean;
+		action?: Omit<ActionSchema, "handler" | "remoteHandler" | "service">;
+		endpoints?: Pick<Endpoint, "id" | "state">[];
+	}
+
+	class ActionCatalog {
+		add(node: BrokerNode, service: ServiceItem, action: ActionSchema): EndpointList;
+
+		get(actionName: string): EndpointList | undefined;
+
+		isAvailable(actionName: string): boolean;
+
+		removeByService(service: ServiceItem): void;
+
+		remove(actionName: string, nodeID: string): void;
+
+		list(opts: ActionCatalogListOptions): ActionCatalogListResult[];
+	}
+
+	class ServiceItem {}
 
 	class AsyncStorage {
 		broker: ServiceBroker;
