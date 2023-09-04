@@ -332,16 +332,20 @@ class AmqpTransporter extends Transporter {
 			// This means that if a worker dies after receiving a message but before responding, the
 			// message won't be lost and it can be retried.
 			if (needAck) {
+				this.logger.info(`receive message with tag ${msg.fields.deliveryTag}`)
 				if (isPromise(result)) {
 					return result
 						.then(() => {
+							this.logger.info(`ack message with tag ${msg.fields.deliveryTag}`)
 							if (this.channel) this.channel.ack(msg);
 						})
 						.catch(err => {
+							this.logger.info(`nack message with tag ${msg.fields.deliveryTag}`)
 							this.logger.error("Message handling error.", err);
 							if (this.channel) this.channel.nack(msg);
 						});
 				} else if (this.channel) {
+					this.logger.info(`elsif ack message with tag ${msg.fields.deliveryTag}`)
 					this.channel.ack(msg);
 				}
 			}
