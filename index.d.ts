@@ -1,4 +1,6 @@
 import type { EventEmitter2 } from "eventemitter2";
+import type { BinaryLike, CipherCCMTypes, CipherGCMTypes, CipherKey, CipherOCBTypes } from 'crypto'
+import type { Worker } from "cluster";
 import type { Kleur } from "kleur";
 
 declare namespace Moleculer {
@@ -666,6 +668,7 @@ declare namespace Moleculer {
 			| ((handler: ActionHandler, event: ServiceEvent) => any)
 			| ((handler: ActionHandler) => any)
 			| ((service: Service) => any)
+			| ((service: Service, serviceSchema: ServiceSchema) => any)
 			| ((broker: ServiceBroker) => any)
 			| ((handler: CallMiddlewareHandler) => CallMiddlewareHandler);
 	};
@@ -1657,54 +1660,6 @@ declare namespace Moleculer {
 		}
 	}
 
-	/**
-	 * you can use multiple modifier with a dot
-	 * e.g. `black.bgRed.bold`
-	 */
-	type KleurColor = keyof Kleur | string;
-
-	type ActionLoggerOptions = {
-		logger?: LoggerInstance;
-		logLevel?: LogLevels;
-		logParams?: boolean;
-		logResponse?: boolean;
-		logMeta?: boolean;
-		folder?: string | null;
-		extension?: string;
-		colors?: {
-			request?: KleurColor;
-			response?: KleurColor;
-			error?: KleurColor;
-		};
-		whitelist?: Array<string>;
-	};
-	type TransitLoggerOptions = {
-		logger?: LoggerInstance;
-		logLevel?: LogLevels;
-		logPacketData?: boolean;
-		folder?: string | null;
-		extension?: string;
-		colors?: {
-			receive?: KleurColor;
-			send?: KleurColor;
-		};
-		packetFilter?: Array<Packets.packetType>;
-	};
-	type CompressionOptions = {
-		method?: "deflate" | "deflateRaw" | "gzip";
-		threshold?: number | string;
-	};
-	export const Middlewares: {
-		Debugging: {
-			ActionLogger(options?: ActionLoggerOptions): Middleware;
-			TransitLogger(options?: TransitLoggerOptions): Middleware;
-		};
-		Transmit: {
-			Compression(options?: CompressionOptions): Middleware;
-			Encryption(password: string, algorithm: string, iv: string | Buffer): Middleware;
-		};
-	};
-
 	interface TransitRequest {
 		action: string;
 		nodeID: string;
@@ -1883,6 +1838,247 @@ declare namespace Moleculer {
 		function makeDirs(path: string): void;
 		function parseByteString(value: string): number;
 	}
+
+	/**
+	 * Parsed CLI flags
+	 */
+	interface RunnerFlags {
+
+		/**
+		 * Path to load configuration from a file
+		 */
+		config?: string;
+
+		/**
+		 * Start REPL mode
+		 */
+		repl?: boolean;
+
+		/**
+		 * Enable hot reload mode
+		 */
+		hot?: boolean;
+
+		/**
+		 * Silent mode. No logger
+		 */
+		silent?: boolean;
+
+		/**
+		 * Load .env file from current directory
+		 */
+		env?: boolean;
+
+		/**
+		 * Load .env files by glob pattern
+		 */
+		envfile?: string;
+
+		/**
+		 * Number of node instances to start in cluster mode
+		 */
+		instances?: number;
+
+		/**
+		 * File mask for loading services
+		 */
+		mask?: string;
+
+	}
+
+	/**
+	 * Moleculer Runner
+	 */
+	class Runner {
+		worker: Worker | null;
+		broker: ServiceBroker | null;
+
+		/**
+		 * Watch folders for hot reload
+		 */
+		watchFolders: string[];
+
+		/**
+		 * Parsed CLI flags
+		 */
+		flags: RunnerFlags | null;
+
+		/**
+		 * Loaded configuration file
+		 */
+		configFile: Partial<BrokerOptions>;
+
+		/**
+		 * Merged configuration
+		 */
+		config: Partial<BrokerOptions>;
+
+		/**
+		 * Process command line arguments
+		 */
+		processFlags(args: string[]): void;
+
+		/**
+		 * Load environment variables from '.env' file
+		 */
+		loadEnvFile(): void;
+
+		/**
+		 * Load configuration file
+		 *
+		 * Try to load a configuration file in order to:
+		 *
+		 *		- load file defined in MOLECULER_CONFIG env var
+		 * 		- try to load file which is defined in CLI option with --config
+		 * 		- try to load the `moleculer.config.js` file if exist in the cwd
+		 * 		- try to load the `moleculer.config.json` file if exist in the cwd
+		 */
+		loadConfigFile(): Promise<void>;
+
+		/**
+		 * Normalize a value from env variable
+		 */
+		normalizeEnvValue(value: string): string | number | boolean;
+
+		/**
+		 * Overwrite config values from environment variables
+		 */
+		overwriteFromEnv(obj: any, prefix?: string): any;
+
+		/**
+		 * Merge broker options from config file & env variables
+		 */
+		mergeOptions(): void;
+
+		/**
+		 * Check if a path is a directory
+		 */
+		isDirectory(path: string): boolean;
+
+		/**
+		 * Check if a path is a service file
+		 */
+		isServiceFile(path: string): boolean;
+
+		/**
+		 * Load services from files or directories
+		 */
+		loadServices(): void;
+
+		/**
+		 * Start cluster workers
+		 */
+		startWorkers(instances: number): void;
+
+		/**
+		 * Load service from NPM module
+		 */
+		loadNpmModule(name: string): Service;
+
+		/**
+		 * Start Moleculer broker
+		 */
+		startBroker(): Promise<ServiceBroker>;
+
+		/**
+		 * Restart broker
+		 */
+		restartBroker(): Promise<ServiceBroker>;
+
+		/**
+		 * Start runner
+		 */
+		start(args: string[]): Promise<void>;
+	}
+
+
+	/**
+	 * you can use multiple modifier with a dot
+	 * e.g. `black.bgRed.bold`
+	 */
+	type KleurColor = keyof Kleur | string;
+
+	type ActionLoggerOptions = {
+		logger?: LoggerInstance;
+		logLevel?: LogLevels;
+		logParams?: boolean;
+		logResponse?: boolean;
+		logMeta?: boolean;
+		folder?: string | null;
+		extension?: string;
+		colors?: {
+			request?: KleurColor;
+			response?: KleurColor;
+			error?: KleurColor;
+		};
+		whitelist?: Array<string>;
+	};
+	type TransitLoggerOptions = {
+		logger?: LoggerInstance;
+		logLevel?: LogLevels;
+		logPacketData?: boolean;
+		folder?: string | null;
+		extension?: string;
+		colors?: {
+			receive?: KleurColor;
+			send?: KleurColor;
+		};
+		packetFilter?: Array<Packets.packetType>;
+	};
+	/* @private */
+	interface MoleculerMiddlewares {
+		Transmit: {
+			Debugging: {
+				ActionLogger(options?: ActionLoggerOptions): Middleware;
+				TransitLogger(options?: TransitLoggerOptions): Middleware;
+			};
+			/**
+			 * Encrypts the Transporter payload
+			 * @param key The key to use for encryption
+			 * @param [algorithm] The algorithm to use for encryption. Default is aes-256-cbc
+			 * @param [iv] The initialization vector to use for encryption. Optional
+			 * @example // moleculer.config.js
+			 * const crypto = require("crypto");
+			 * const { Middlewares } = require("moleculer");
+			 * const initVector = crypto.randomBytes(16);
+			 *
+			 * module.exports = {
+			 *   middlewares: [
+			 *     Middlewares.Transmit.Encryption("secret-password", "aes-256-cbc", initVector) // "aes-256-cbc" is the default
+			 *   ]
+			 * };
+			 */
+			Encryption: (key: CipherKey, algorithm?: CipherCCMTypes|CipherOCBTypes|CipherGCMTypes|string, iv?: BinaryLike | null)=> Middleware,
+			Compression: (opts?: {
+				/**
+				 * @default deflate
+				 */
+				method?: 'gzip' | 'deflate' | 'deflateRaw'
+				/**
+				 * Compression middleware reduces the size of the messages that go through the transporter module.
+				 * This middleware uses built-in Node zlib lib.
+				 * Threshold should be a number of bytes or a string like 100kb, 4mb, etc. Accepted units are:
+				 * - kb, for kilobytes
+				 * - mb, for megabytes
+				 * - gb, for gigabytes
+				 * - tb, for terabytes
+				 * - pb, for petabytes
+				 * @default 1kb
+				 * @example // moleculer.config.js
+				 * const { Middlewares } = require("moleculer");
+				 *
+				 * // Create broker
+				 * module.exports = {
+				 *   middlewares: [
+				 *     Middlewares.Transmit.Compression("deflate") // or "deflateRaw" or "gzip"
+				 *   ]
+				 * };
+				 */
+				threshold?: number | string
+			}) => Middleware,
+		}
+	}
+	const Middlewares: MoleculerMiddlewares
 }
 
 export = Moleculer;
